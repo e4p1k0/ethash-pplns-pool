@@ -13,16 +13,24 @@ import (
 // Allow only lowercase hexadecimal with 0x prefix
 var noncePattern = regexp.MustCompile("^0x[0-9a-f]{16}$")
 var hashPattern = regexp.MustCompile("^0x[0-9a-f]{64}$")
-var workerPattern = regexp.MustCompile("^[0-9a-zA-Z-_]{1,8}$")
+var workerPattern = regexp.MustCompile("^[0-9a-zA-Z-_]{1,16}$")
 
 // Stratum
 func (s *ProxyServer) handleLoginRPC(cs *Session, params []string, id string) (bool, *ErrorReply) {
+	var loginCheck string
 	if len(params) == 0 {
 		return false, &ErrorReply{Code: -1, Message: "Invalid params"}
 	}
 
 	login := strings.ToLower(params[0])
-	if !util.IsValidHexAddress(login) {
+	if strings.Contains(login, ".") {
+		longString := strings.Split(login, ".")
+                loginCheck = longString[0]
+    } else {
+        loginCheck = login
+    }
+
+	if !util.IsValidHexAddress(loginCheck) {
 		return false, &ErrorReply{Code: -1, Message: "Invalid login"}
 	}
 	if !s.policy.ApplyLoginPolicy(login, cs.ip) {
@@ -55,8 +63,14 @@ func (s *ProxyServer) handleTCPSubmitRPC(cs *Session, id string, params []string
 }
 
 func (s *ProxyServer) handleSubmitRPC(cs *Session, login, id string, params []string) (bool, *ErrorReply) {
+	if strings.Contains(login, ".") {
+		longString := strings.Split(login, ".")
+		id = longString[1]
+		login = longString[0]
+    }
+	
 	if !workerPattern.MatchString(id){
-		id = "0"
+		id = "default"
 	}
 	if len(params) != 3 {
 		s.policy.ApplyMalformedPolicy(cs.ip)
